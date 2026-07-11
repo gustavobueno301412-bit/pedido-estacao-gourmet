@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚂 Estação Gourmet 👩‍🍳</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        body { background: #fdf6e3; color: #333; font-family: sans-serif; margin: 0; padding: 10px; max-width: 600px; margin: auto; }
+        .marquee-container { background-color: #FF8C00; color: #fff; padding: 10px 0; border-radius: 8px; overflow: hidden; white-space: nowrap; margin-bottom: 10px; font-weight: bold; font-size: 0.9em; }
+        .marquee-text { display: inline-block; animation: marquee 25s linear infinite; }
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        #banner { width: 100%; height: 200px; background-size: cover; background-position: center center; background-repeat: no-repeat; border-radius: 10px; transition: 0.5s; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+        .card { border: 2px solid #FF8C00; background: #fff; padding: 10px; border-radius: 8px; text-align: center; display: flex; flex-direction: column; }
+        .card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 5px; margin-bottom: 5px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.98); color: #333; z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .btn { background: #FF8C00; border: none; padding: 12px; width: 100%; color: #fff; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        input[type="text"], input[type="number"], select { width: 100%; padding: 10px; margin: 5px 0; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<div class="marquee-container">
+    <div class="marquee-text">🚂 Estação Gourmet 👩‍🍳 &nbsp;&nbsp;|&nbsp;&nbsp; Horários: Segunda a Sábado 19:00 às 23:00 / Domingo 11:00 às 15:00 e 19:00 às 23:00 ⏰ &nbsp;&nbsp;|&nbsp;&nbsp; Atendimento de Segunda a Domingo 🗓️ &nbsp;&nbsp;|&nbsp;&nbsp; Rua Paschoal Palazzo 360, Segundo Retiro, Cruzeiro - SP 📌 &nbsp;&nbsp;|&nbsp;&nbsp; Obrigado pela preferência 😃🙏</div>
+</div>
+
+<div id="banner"></div>
+<div id="status-loja" style="text-align:center; padding:10px; color:#FF8C00; font-weight:bold;"></div>
+
+<div class="filtros" style="display:flex; gap:5px;">
+    <button class="btn" onclick="filtrar('Todos')">Todos 📝</button>
+    <button class="btn" onclick="filtrar('Lanche')">Tamanho (P) 🍲</button>
+    <button class="btn" onclick="filtrar('Bebida')">Tamanho (M) 🍲</button>
+</div>
+
+<input type="text" id="busca" placeholder="🔍 Buscar produto..." onkeyup="filtrar()">
+<div id="lista-produtos" class="grid"></div>
+
+<div id="modal" class="modal">
+    <h2 id="modal-nome"></h2>
+    <p id="modal-desc"></p>
+    <h3>🟢🟢🟢🟢🟢 ➕ Adicionais 😋👍</h3>
+    <div id="lista-adicionais"></div>
+    <h3>🔴🔴🔴🔴🔴 ➖ Retirar 👎😕</h3>
+    <div id="lista-retiradas"></div>
+    <button class="btn" onclick="adicionarAoCarrinho()">Adicionar ao Carrinho ✔️</button>
+    <button class="btn" style="background:#555;" onclick="document.getElementById('modal').style.display='none'">Fechar ❌</button>
+</div>
+
+<div class="carrinho" style="margin-top:20px; border-top:2px solid #FF8C00; padding-top:10px;">
+    <h2>🛒 Carrinho (Retirar click na lixeirinha 🗑️)</h2>
+    <input type="text" id="nome-cliente" placeholder="👤 Seu nome">
+    <div id="itens-carrinho"></div>
+    <p>📋 Subtotal: R$ <span id="subtotal">0.00</span></p>
+    <select id="entrega" onchange="calcularTotal(); toggleEndereco()">
+        <option value="0">🏠🏃‍♂️ Retirada - Rua Paschoal Palazzo 360, Segundo Retiro (R$ 0.00)</option>
+        <option value="3">🛵📦 Cruzeiro - Entrega Delivery (R$ 3.00)</option>
+    </select>
+    <input type="text" id="endereco" placeholder="📍 Digite o endereço de entrega" style="display:none;">
+    <select id="pagamento" onchange="toggleTroco()">
+        <option value="Pix">🔑 Pix (Enviaremos a chave pix)</option>
+        <option value="Cartão">💳 Cartão (Enviaremos a maquininha)</option>
+        <option value="Dinheiro">💰 Dinheiro</option>
+    </select>
+    <input type="number" id="troco" placeholder="💵 Troco para quanto?" style="display:none;">
+    <p><strong>🖨️ Total Final: R$ <span id="total-final">0.00</span></strong></p>
+    <button class="btn" onclick="finalizar()">✅ Enviar Pedido WhatsApp 🚀</button>
+</div>
+
+<script>
+    let produtos = [], adicionais = [], banners = [], carrinho = [];
+    const urls = {
+        produtos: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTrLoJ3npEwm4JUJH7DwgHXiWO_3yyDFHiJQhrl66VWlkcXCkeXRvtlXvCAR6TznvoIkmndayxzRzFo/pub?gid=0&single=true&output=csv",
+        adicionais: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTrLoJ3npEwm4JUJH7DwgHXiWO_3yyDFHiJQhrl66VWlkcXCkeXRvtlXvCAR6TznvoIkmndayxzRzFo/pub?gid=1088367087&single=true&output=csv",
+        banner: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTrLoJ3npEwm4JUJH7DwgHXiWO_3yyDFHiJQhrl66VWlkcXCkeXRvtlXvCAR6TznvoIkmndayxzRzFo/pub?gid=240530553&single=true&output=csv",
+        horario: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8LycHY-p1Mu0gzme6BdVMG6Mb8QmXmy73ceE-IEZOOk3W9uE_kgoVIsS1Qlhwto2l8Yv7LiJiE9lo/pub?gid=214515598&single=true&output=csv"
+    };
+
+    Papa.parse(urls.produtos, { download: true, header: true, complete: (res) => { produtos = res.data.filter(p=>p['Nome do Produto']); filtrar('Todos'); }});
+    Papa.parse(urls.adicionais, { download: true, header: true, complete: (res) => { adicionais = res.data; }});
+    Papa.parse(urls.banner, { download: true, header: true, complete: (res) => { banners = res.data; setInterval(() => { let b = banners[Math.floor(Math.random()*banners.length)]; document.getElementById('banner').style.backgroundImage = `url('${b['Imagem (URL)']}')`; }, 3000); }});
+    Papa.parse(urls.horario, { download: true, header: true, complete: (res) => { document.getElementById('status-loja').innerText = res.data[0].status; }});
+
+    function filtrar(cat) {
+        let b = document.getElementById('busca').value.toLowerCase();
+        let lista = produtos.filter(p => (cat === 'Todos' || cat === undefined || p.Categoria === cat) && p['Nome do Produto'].toLowerCase().includes(b));
+        window.listaAtual = lista;
+        document.getElementById('lista-produtos').innerHTML = lista.map((p, index) => `
+            <div class="card">
+                <img src="${p['Imagem (URL)']}" alt="${p['Nome do Produto']}">
+                <h3>${p['Nome do Produto']}</h3>
+                <p style="font-size:0.8em;">${p['Descricao'] || ''}</p>
+                <p>💰 R$ ${p['Preco']}</p>
+                <button class="btn" onclick="abrirModal(${index})">Detalhes 📝</button>
+            </div>
+        `).join('');
+    }
+
+    function toggleEndereco() { document.getElementById('endereco').style.display = (document.getElementById('entrega').value !== '0') ? 'block' : 'none'; }
+    function toggleTroco() { document.getElementById('troco').style.display = (document.getElementById('pagamento').value === 'Dinheiro') ? 'block' : 'none'; }
+
+    function abrirModal(index) {
+        let p = window.listaAtual[index];
+        document.getElementById('modal-nome').innerText = p['Nome do Produto'];
+        document.getElementById('modal-desc').innerText = p['Descricao'] || '';
+       
+        // FORÇANDO a leitura do preço, limpando vírgulas se houver
+        let precoBase = parseFloat(String(p['Preco']).replace(',', '.'));
+        window.temp = { nome: p['Nome do Produto'], preco: precoBase, cat: p.Categoria, extras: [], rems: [] };
+       
+        document.getElementById('lista-adicionais').innerHTML = adicionais.filter(a => a.setor.trim() === p.Categoria.trim() && a.categoria === 'Adicional').map(a => `<p><input type="checkbox" class="add" value="${parseFloat(String(a.preco).replace(',', '.'))}" data-n="${a.nome_item}"> ${a.nome_item} (+R$ ${parseFloat(String(a.preco).replace(',', '.')).toFixed(2)})</p>`).join('');
+        document.getElementById('lista-retiradas').innerHTML = adicionais.filter(a => a.setor.trim() === p.Categoria.trim() && a.categoria === 'Retirada').map(a => `<p><input type="checkbox" class="rem" data-n="${a.nome_item}"> ${a.nome_item}</p>`).join('');
+        document.getElementById('modal').style.display = 'block';
+    }
+
+    function adicionarAoCarrinho() {
+        window.temp.extras = Array.from(document.querySelectorAll('.add:checked')).map(i => ({ nome: i.dataset.n, preco: parseFloat(i.value) }));
+        window.temp.rems = Array.from(document.querySelectorAll('.rem:checked')).map(i => i.dataset.n);
+        carrinho.push(window.temp);
+        document.getElementById('modal').style.display = 'none';
+        alert("🛒 Adicionado, conferir no carrinho!");
+        calcularTotal();
+    }
+
+    function calcularTotal() {
+        let sub = carrinho.reduce((total, item) => {
+            let extras = item.extras.reduce((somaExtras, extra) => somaExtras + extra.preco, 0);
+            return total + item.preco + extras;
+        }, 0);
+       
+        let taxa = parseFloat(document.getElementById('entrega').value);
+        document.getElementById('subtotal').innerText = sub.toFixed(2);
+        document.getElementById('total-final').innerText = (sub + taxa).toFixed(2);
+       
+        document.getElementById('itens-carrinho').innerHTML = carrinho.map((p, i) => `<p>• ${p.nome} (R$ ${p.preco.toFixed(2)}) ${p.extras.map(e => '(+'+e.nome+')')} ${p.rems.map(r => '(Sem '+r+')')} <span onclick="carrinho.splice(${i},1); calcularTotal();" style="cursor:pointer; color:red;">🗑️</span></p>`).join('');
+    }
+
+    function finalizar() {
+        let nomeCliente = document.getElementById('nome-cliente').value;
+        let msg = `🚂 *PEDIDO ESTAÇÃO GOURMET*%0A%0A👤 *Cliente:* ${nomeCliente}%0A📋 *Itens:*%0A` + carrinho.map(p => `• ${p.nome} (R$ ${p.preco.toFixed(2)}) ${p.extras.map(e => '(+'+e.nome+')')} ${p.rems.map(r => '(Sem '+r+')')}`).join('%0A');
+        if(document.getElementById('entrega').value !== '0') msg += `%0A%0A🏠 *Endereço:* ${document.getElementById('endereco').value}`;
+        msg += `%0A%0A💰 *Subtotal:* R$ ${document.getElementById('subtotal').innerText}%0A🛵 *Taxa:* R$ ${document.getElementById('entrega').value}%0A🖨️ *Total Final:* R$ ${document.getElementById('total-final').innerText}%0A💳 *Pagamento:* ${document.getElementById('pagamento').value}`;
+        if(document.getElementById('pagamento').value === 'Dinheiro') msg += `%0A💵 *Troco para:* R$ ${document.getElementById('troco').value}`;
+        msg += `%0A%0A🙏 *Agradecemos a preferência!*`;
+        window.open(`https://wa.me/5512991699494?text=${msg}`);
+    }
+</script>
+</body>
+</html>
+
+ 
